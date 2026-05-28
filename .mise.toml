@@ -1,3 +1,33 @@
 [tools]
 go = "1.26.3"
 golangci-lint = "2.12.2"
+
+[tasks.build]
+run = "go run ./scripts/build.go"
+sources = [
+  "go.mod",
+  "go.sum",
+  "cmd/**/*.go",
+  "internal/**/*.go",
+  "pkg/**/*.go",
+  "scripts/build.go"
+]
+outputs = ["bin/clix*"]
+
+[tasks.clean]
+run = "go run ./scripts/build.go clean"
+
+[tasks.fmt]
+run = "golangci-lint fmt"
+
+[tasks.lint]
+run = "golangci-lint run"
+
+[tasks.test]
+run = "go test ./..."
+
+[tasks.check]
+run = [
+  { task = "lint" },
+  { task = "test" }
+]

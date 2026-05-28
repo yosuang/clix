@@ -3,3 +3,13 @@
 .claude/
 .pi
 .antigravitycli/
+
+# MacOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Build output
+/bin

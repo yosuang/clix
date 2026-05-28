@@ -8,6 +8,13 @@
       "computedHash": "784f0dbb7403b0f00324bce9a112f715342777a0daee7bbb7385f9c6f0a170ea",
       "claude-plugin": "mattpocock-skills"
     },
+    "hunt": {
+      "source": "tw93/Waza",
+      "ref": "main",
+      "sourceType": "github",
+      "computedHash": "823df330d6c1bdfb8b3c6ab9458441cd10d1684ded9f1d80a13a444df8f4bbbd",
+      "claude-plugin": "waza"
+    },
     "think": {
       "source": "tw93/Waza",
       "ref": "main",

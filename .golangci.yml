@@ -1,0 +1,58 @@
+version: "2"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+  exclusions:
+    generated: lax
+
+  settings:
+    gofmt:
+      simplify: true
+
+linters:
+  default: none
+
+  enable:
+    - depguard
+    - dupl
+    - gomodguard_v2
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - revive
+    - staticcheck
+    - thelper
+    - unused
+    - usestdlibvars
+    - usetesting
+
+  exclusions:
+    generated: lax
+
+    warn-unused: true
+
+    presets:
+      - comments
+      - std-error-handling
+      - common-false-positives
+      - legacy
+
+  settings:
+    depguard:
+      rules:
+        Main:
+          deny:
+            - pkg: github.com/hashicorp/go-multierror
+              desc: "use errors instead"
+            - pkg: github.com/pkg/errors
+              desc: "use errors instead"
+
+    dupl:
+      threshold: 400
+
+run:
+  timeout: 10m
