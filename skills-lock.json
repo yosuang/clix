@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "skills": {
+    "grill-me": {
+      "source": "mattpocock/skills",
+      "ref": "main",
+      "sourceType": "github",
+      "computedHash": "784f0dbb7403b0f00324bce9a112f715342777a0daee7bbb7385f9c6f0a170ea",
+      "claude-plugin": "mattpocock-skills"
+    },
+    "think": {
+      "source": "tw93/Waza",
+      "ref": "main",
+      "sourceType": "github",
+      "computedHash": "9ed23d1d92813a0d6a7b8b50957194f628e7f20a216352577ed85c3aca314398",
+      "claude-plugin": "waza"
+    },
+    "write": {
+      "source": "tw93/Waza",
+      "ref": "main",
+      "sourceType": "github",
+      "computedHash": "025a5eabb2ba2fe98212e4e0b304e4ebe7ccc14e2a18bc8f1bd1faca3b0ef85e",
+      "claude-plugin": "waza"
+    }
+  }
+}
