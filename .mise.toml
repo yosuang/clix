@@ -10,7 +10,7 @@ sources = [
   "cmd/**/*.go",
   "internal/**/*.go",
   "pkg/**/*.go",
-  "scripts/build.go"
+  "scripts/build.go",
 ]
 outputs = ["bin/clix*"]
 
@@ -27,7 +27,4 @@ run = "golangci-lint run"
 run = "go test ./..."
 
 [tasks.check]
-run = [
-  { task = "lint" },
-  { task = "test" }
-]
+run = [{ task = "lint" }, { task = "test" }]
