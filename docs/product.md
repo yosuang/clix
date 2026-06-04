@@ -9,7 +9,7 @@ Humans are not the primary caller. Humans use the CLI to define tools, approve s
 ## Product Principles
 
 - CLI-only for MVP. MCP is not included yet.
-- Default output is concise semantic text. Machine callers use `--json` and optional `--jq` to select the fields they need.
+- Default output is concise semantic text. Machine callers use `--json` to select the fields they need.
 - There is no human interactive mode.
 - The core object is a semantic tool/action, not a workflow.
 - `clix` is not an agent and does not call AI models.
@@ -18,6 +18,7 @@ Humans are not the primary caller. Humans use the CLI to define tools, approve s
 - `write` tools create a `pending_approval` run and only execute after `approve`.
 - No dry-run in MVP. A fake dry-run is more dangerous than no dry-run.
 - All runs are recorded in a user-global SQLite database.
+- Tool definitions live as individual files under `~/.config/clix/tools/`.
 
 ## User-Facing Model
 
@@ -44,6 +45,22 @@ The MVP gives agents three things they need to safely use project operations:
 - Run read actions immediately and receive JSON output.
 - Request write actions through an approval gate before execution.
 
+## Tool Definition Model
+
+Tools are defined as separate user-global files:
+
+```text
+~/.config/clix/
+  tools/
+    weekly.get_records.yaml
+    weekly.submit_report.yaml
+    github.repo.get.yaml
+```
+
+Each file defines exactly one tool. The tool name is declared inside the file; the file path is only for organization and debugging. Moving a file does not change the tool identity.
+
+The tool catalog is the set of valid tool files discovered under `~/.config/clix/tools/`. There is no single global manifest that contains all tools.
+
 ## Command Surface
 
 MVP command surface:
@@ -62,8 +79,10 @@ clix runs get <run_id>
 All commands accept output flags:
 
 ```text
-[--json <fields>] [--jq <expr>]
+[--json <fields>]
 ```
+
+`--jq <expr>` is reserved for future use. In MVP, using `--jq` fails with `USAGE_ERROR`.
 
 All commands write their primary result to stdout and diagnostics to stderr.
 
@@ -78,14 +97,6 @@ clix runs get run_xxx --json id,tool_name,status,error_code,error_message
 
 `--json` accepts a comma-separated list of top-level fields. It returns only those fields. For list commands, every item is projected to the requested fields.
 
-`--jq` filters the JSON result before stdout:
-
-```bash
-clix tools list --json name,effect,adapter --jq '.[] | select(.effect == "write")'
-```
-
-`--jq` implies JSON output. If `--jq` is used without `--json`, the jq expression receives the full command result. If both flags are present, field projection runs before the jq expression.
-
 Success in JSON mode returns the selected command result directly:
 
 ```json
@@ -98,7 +109,7 @@ Success in JSON mode returns the selected command result directly:
 ]
 ```
 
-Failures in JSON mode return a stable error object:
+Failures in JSON mode write a stable error object to stderr and leave stdout empty:
 
 ```json
 {
@@ -150,6 +161,8 @@ approves and immediately executes the pending run.
 
 `reject` only works for `pending_approval` runs and moves the run to `rejected`.
 
+Each run can create exactly one execution attempt. Retrying after success, failure, or crash requires creating a new run.
+
 Adapter output is returned by the command that executed the adapter. It is not persisted. `runs get` returns run metadata, status, timing fields, and error fields.
 
 ## Explicitly Out Of Scope
@@ -165,12 +178,14 @@ Adapter output is returned by the command that executed the adapter. It is not p
 - dry-run
 - rich pretty output
 - interactive prompts
-- project-local manifest discovery
+- project-local tool discovery
 - secret store
 - output persistence
 - retry
 - namespace policy
 - AI adapter
+- cross-file tool imports/includes
+- jq filtering
 
 ## MVP Acceptance Scenario
 
@@ -191,9 +206,9 @@ Success criteria:
 - Tool names describe semantic actions, not adapter mechanics.
 - A `read` action executes immediately and returns JSON in JSON mode.
 - A `write` action always creates a pending run first.
-- `approve` executes a write run exactly once.
+- `approve` creates exactly one execution attempt for a write run.
 - A pending write run is rejected if its tool definition changed.
-- `--json` and `--jq` let callers remove fields they do not need.
+- `--json` lets callers remove fields they do not need.
 - All errors have stable JSON codes.
-- The manifest is loaded from `~/.config/clix/manifest.yaml`.
+- The tool catalog is loaded from `~/.config/clix/tools/`.
 - Runs are stored in `~/.local/share/clix/clix.db`.
