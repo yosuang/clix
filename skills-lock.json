@@ -12,21 +12,21 @@
       "source": "tw93/Waza",
       "ref": "main",
       "sourceType": "github",
-      "computedHash": "823df330d6c1bdfb8b3c6ab9458441cd10d1684ded9f1d80a13a444df8f4bbbd",
+      "computedHash": "e6e342526affdc7662b1a766dbe95da2b324265e7c082075257fa455e87e1a51",
       "claude-plugin": "waza"
     },
     "think": {
       "source": "tw93/Waza",
       "ref": "main",
       "sourceType": "github",
-      "computedHash": "9ed23d1d92813a0d6a7b8b50957194f628e7f20a216352577ed85c3aca314398",
+      "computedHash": "ebad902f4c913f9272ccfa6491ac35c08ea0e4397caa54c7605f857c59257e81",
       "claude-plugin": "waza"
     },
     "write": {
       "source": "tw93/Waza",
       "ref": "main",
       "sourceType": "github",
-      "computedHash": "38466b7bfd85afed98a04b92d3b8da5ef0a037a917e6158df137f1393444a2f7",
+      "computedHash": "14ad15dbf5f669094d59101967b789cad9d44fe656efcc2017eccffe587f2355",
       "claude-plugin": "waza"
     }
   }
