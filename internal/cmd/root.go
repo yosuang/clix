@@ -2,14 +2,21 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/yosuang/clix/internal/cmdutil"
 	"github.com/yosuang/clix/internal/protocol"
 )
 
+type OutputOptions = cmdutil.OutputOptions
+
 func NewRoot(f *cmdutil.Factory) *cobra.Command {
-	root := &cobra.Command{
+	var jsonFields string
+	var jqExpr string
+
+	var root *cobra.Command
+	root = &cobra.Command{
 		Use:                "clix",
 		SilenceUsage:       true,
 		SilenceErrors:      true,
@@ -23,11 +30,24 @@ func NewRoot(f *cmdutil.Factory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			f.Output = OutputOptions{JQ: jqExpr}
+			if root.PersistentFlags().Lookup("json").Changed {
+				fields, err := parseJSONFields(jsonFields)
+				if err != nil {
+					return err
+				}
+				f.Output.JSONFields = fields
+			}
+			return protocol.ValidateReservedJQ(jqExpr)
+		},
 	}
 	root.SetIn(f.IO.In)
 	root.SetOut(f.IO.Out)
 	root.SetErr(f.IO.ErrOut)
 	root.CompletionOptions.DisableDefaultCmd = true
+	root.PersistentFlags().StringVar(&jsonFields, "json", "", "select top-level JSON fields")
+	root.PersistentFlags().StringVar(&jqExpr, "jq", "", "reserved for future use")
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
 		return protocol.NewError(protocol.UsageError, err.Error())
 	})
@@ -40,4 +60,14 @@ func NewRoot(f *cmdutil.Factory) *cobra.Command {
 	})
 	root.AddCommand(NewCheck(f))
 	return root
+}
+
+func parseJSONFields(value string) ([]string, error) {
+	fields := strings.Split(value, ",")
+	for _, field := range fields {
+		if field == "" {
+			return nil, protocol.NewError(protocol.UsageError, "empty --json field")
+		}
+	}
+	return fields, nil
 }

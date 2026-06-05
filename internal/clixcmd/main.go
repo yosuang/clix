@@ -1,7 +1,6 @@
 package clixcmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/yosuang/clix/internal/cmd"
@@ -19,9 +18,13 @@ func Run(io *iostreams.IOStreams, args []string) int {
 	root := cmd.NewRoot(f)
 	root.SetArgs(args)
 	if err := root.Execute(); err != nil {
-		perr := protocol.AsError(err)
-		_, _ = fmt.Fprintln(io.ErrOut, perr.Error())
-		return protocol.ExitCode(perr)
+		jsonFlag := root.PersistentFlags().Lookup("json")
+		if f.Output.JSONFields != nil || jsonFlag != nil && jsonFlag.Changed {
+			_ = protocol.WriteJSONError(io.ErrOut, err)
+		} else {
+			_ = protocol.WriteTextError(io.ErrOut, err)
+		}
+		return protocol.ExitCode(err)
 	}
 	return 0
 }

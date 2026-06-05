@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -127,5 +128,72 @@ func TestRootDisablesCobraSuggestions(t *testing.T) {
 	// #then
 	if !root.DisableSuggestions {
 		t.Fatal("DisableSuggestions = false, want true")
+	}
+}
+
+func TestRootStoresJSONFieldsInFactory(t *testing.T) {
+	// #given
+	var stdout, stderr bytes.Buffer
+	io := iostreams.TestIO(nil, &stdout, &stderr, true)
+	f := &cmdutil.Factory{IO: io}
+	root := NewRoot(f)
+	root.SetArgs([]string{"--json", "id,status", "check"})
+
+	// #when
+	err := root.Execute()
+
+	// #then
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	want := []string{"id", "status"}
+	if !reflect.DeepEqual(f.Output.JSONFields, want) {
+		t.Fatalf("JSONFields = %#v, want %#v", f.Output.JSONFields, want)
+	}
+}
+
+func TestRootRejectsEmptyJSONField(t *testing.T) {
+	// #given
+	var stdout, stderr bytes.Buffer
+	io := iostreams.TestIO(nil, &stdout, &stderr, true)
+	f := &cmdutil.Factory{IO: io}
+	root := NewRoot(f)
+	root.SetArgs([]string{"--json", "id,,status", "check"})
+
+	// #when
+	err := root.Execute()
+
+	// #then
+	if err == nil || err.Error() != "USAGE_ERROR: empty --json field" {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("stderr = %q, command layer must not print errors", stderr.String())
+	}
+}
+
+func TestRootRejectsReservedJQ(t *testing.T) {
+	// #given
+	var stdout, stderr bytes.Buffer
+	io := iostreams.TestIO(nil, &stdout, &stderr, true)
+	f := &cmdutil.Factory{IO: io}
+	root := NewRoot(f)
+	root.SetArgs([]string{"--jq", ".id", "check"})
+
+	// #when
+	err := root.Execute()
+
+	// #then
+	if err == nil || err.Error() != "USAGE_ERROR: --jq is reserved for future use" {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("stderr = %q, command layer must not print errors", stderr.String())
 	}
 }
