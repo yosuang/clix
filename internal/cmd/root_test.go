@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/yosuang/clix/internal/cmdutil"
 	"github.com/yosuang/clix/internal/iostreams"
 	"github.com/yosuang/clix/internal/protocol"
@@ -195,5 +196,64 @@ func TestRootRejectsReservedJQ(t *testing.T) {
 	}
 	if stderr.String() != "" {
 		t.Fatalf("stderr = %q, command layer must not print errors", stderr.String())
+	}
+}
+
+func TestRootRejectsReservedJQWhenValueIsEmpty(t *testing.T) {
+	// #given
+	var stdout, stderr bytes.Buffer
+	io := iostreams.TestIO(nil, &stdout, &stderr, true)
+	f := &cmdutil.Factory{IO: io}
+	root := NewRoot(f)
+	root.SetArgs([]string{"--jq", "", "check"})
+
+	// #when
+	err := root.Execute()
+
+	// #then
+	if err == nil || err.Error() != "USAGE_ERROR: --jq is reserved for future use" {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("stderr = %q, command layer must not print errors", stderr.String())
+	}
+}
+
+func TestRootOutputOptionsRunBeforeChildPersistentPreRun(t *testing.T) {
+	// #given
+	var stdout, stderr bytes.Buffer
+	io := iostreams.TestIO(nil, &stdout, &stderr, true)
+	f := &cmdutil.Factory{IO: io}
+	root := NewRoot(f)
+	childHookRan := false
+	root.AddCommand(&cobra.Command{
+		Use:  "child",
+		Args: usageArgs(cobra.NoArgs),
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			childHookRan = true
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return nil
+		},
+	})
+	root.SetArgs([]string{"--json", "id,status", "child"})
+
+	// #when
+	err := root.Execute()
+
+	// #then
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if !childHookRan {
+		t.Fatal("child persistent pre-run did not run")
+	}
+	want := []string{"id", "status"}
+	if !reflect.DeepEqual(f.Output.JSONFields, want) {
+		t.Fatalf("JSONFields = %#v, want %#v", f.Output.JSONFields, want)
 	}
 }

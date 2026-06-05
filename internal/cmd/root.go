@@ -12,6 +12,8 @@ import (
 type OutputOptions = cmdutil.OutputOptions
 
 func NewRoot(f *cmdutil.Factory) *cobra.Command {
+	cobra.EnableTraverseRunHooks = true
+
 	var jsonFields string
 	var jqExpr string
 
@@ -31,15 +33,21 @@ func NewRoot(f *cmdutil.Factory) *cobra.Command {
 			return cmd.Help()
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			f.Output = OutputOptions{JQ: jqExpr}
-			if root.PersistentFlags().Lookup("json").Changed {
+			jsonFlag := root.PersistentFlags().Lookup("json")
+			jqFlag := root.PersistentFlags().Lookup("jq")
+			f.Output = OutputOptions{
+				JSONSet: jsonFlag != nil && jsonFlag.Changed,
+				JQ:      jqExpr,
+				JQSet:   jqFlag != nil && jqFlag.Changed,
+			}
+			if f.Output.JSONSet {
 				fields, err := parseJSONFields(jsonFields)
 				if err != nil {
 					return err
 				}
 				f.Output.JSONFields = fields
 			}
-			return protocol.ValidateReservedJQ(jqExpr)
+			return protocol.ValidateReservedJQFlag(f.Output.JQSet)
 		},
 	}
 	root.SetIn(f.IO.In)

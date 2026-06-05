@@ -2,6 +2,7 @@ package clixcmd
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/yosuang/clix/internal/iostreams"
@@ -42,7 +43,7 @@ func TestRunRendersJSONErrorWhenJSONRequested(t *testing.T) {
 	if stdout.String() != "" {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
-	want := "{\"code\":\"USAGE_ERROR\",\"message\":\"unknown command \\\"extra\\\" for \\\"clix check\\\"\",\"ok\":false}\n"
+	want := "{\"ok\":false,\"code\":\"USAGE_ERROR\",\"message\":\"unknown command \\\"extra\\\" for \\\"clix check\\\"\"}\n"
 	if stderr.String() != want {
 		t.Fatalf("stderr = %q, want JSON error %q", stderr.String(), want)
 	}
@@ -63,8 +64,28 @@ func TestRunRendersJSONErrorForInvalidJSONFields(t *testing.T) {
 	if stdout.String() != "" {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
-	want := "{\"code\":\"USAGE_ERROR\",\"message\":\"empty --json field\",\"ok\":false}\n"
+	want := "{\"ok\":false,\"code\":\"USAGE_ERROR\",\"message\":\"empty --json field\"}\n"
 	if stderr.String() != want {
 		t.Fatalf("stderr = %q, want JSON error %q", stderr.String(), want)
+	}
+}
+
+func TestRunRendersJSONErrorWhenJSONValueMissing(t *testing.T) {
+	// #given
+	var stdout, stderr bytes.Buffer
+	ioStreams := iostreams.TestIO(nil, &stdout, &stderr, true)
+
+	// #when
+	exitCode := Run(ioStreams, []string{"--json"})
+
+	// #then
+	if exitCode != 2 {
+		t.Fatalf("Run() exit code = %d, want 2", exitCode)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.HasPrefix(stderr.String(), `{"ok":false,"code":"USAGE_ERROR","message":`) {
+		t.Fatalf("stderr = %q, want JSON usage error", stderr.String())
 	}
 }

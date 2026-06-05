@@ -17,6 +17,7 @@ func ParseJSONObject(in io.Reader) (map[string]any, []byte, error) {
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
 	var value any
 	if err := decoder.Decode(&value); err != nil {
 		return nil, nil, NewError(ValidationError, "input must be valid JSON")

@@ -14,14 +14,20 @@ func WriteJSON(out io.Writer, value any) error {
 
 func WriteJSONError(errOut io.Writer, err error) error {
 	perr := AsError(err)
-	return WriteJSON(errOut, map[string]any{
-		"ok":      false,
-		"code":    perr.Code,
-		"message": perr.Message,
+	return WriteJSON(errOut, errorOutput{
+		OK:      false,
+		Code:    perr.Code,
+		Message: perr.Message,
 	})
 }
 
 func WriteTextError(errOut io.Writer, err error) error {
 	_, writeErr := fmt.Fprintln(errOut, AsError(err).Error())
 	return writeErr
+}
+
+type errorOutput struct {
+	OK      bool   `json:"ok"`
+	Code    Code   `json:"code"`
+	Message string `json:"message"`
 }

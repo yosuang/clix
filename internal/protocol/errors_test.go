@@ -51,7 +51,7 @@ func TestWriteJSONErrorRendersProtocolEnvelope(t *testing.T) {
 	if writeErr != nil {
 		t.Fatalf("WriteJSONError() error = %v", writeErr)
 	}
-	want := "{\"code\":\"USAGE_ERROR\",\"message\":\"bad flag\",\"ok\":false}\n"
+	want := "{\"ok\":false,\"code\":\"USAGE_ERROR\",\"message\":\"bad flag\"}\n"
 	if stderr.String() != want {
 		t.Fatalf("stderr = %q, want %q", stderr.String(), want)
 	}
