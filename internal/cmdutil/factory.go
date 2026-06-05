@@ -1,6 +1,9 @@
 package cmdutil
 
-import "github.com/yosuang/clix/internal/iostreams"
+import (
+	"github.com/yosuang/clix/internal/catalog"
+	"github.com/yosuang/clix/internal/iostreams"
+)
 
 type OutputOptions struct {
 	JSONFields []string
@@ -9,7 +12,12 @@ type OutputOptions struct {
 	JQSet      bool
 }
 
+type CatalogLoader interface {
+	Load() (catalog.Catalog, error)
+}
+
 type Factory struct {
-	IO     *iostreams.IOStreams
-	Output OutputOptions
+	IO            *iostreams.IOStreams
+	Output        OutputOptions
+	CatalogLoader CatalogLoader
 }

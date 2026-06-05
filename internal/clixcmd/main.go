@@ -2,8 +2,10 @@ package clixcmd
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/yosuang/clix/internal/catalog"
 	"github.com/yosuang/clix/internal/cmd"
 	"github.com/yosuang/clix/internal/cmdutil"
 	"github.com/yosuang/clix/internal/iostreams"
@@ -15,7 +17,7 @@ func Main() {
 }
 
 func Run(io *iostreams.IOStreams, args []string) int {
-	f := &cmdutil.Factory{IO: io}
+	f := &cmdutil.Factory{IO: io, CatalogLoader: catalog.NewLoader(catalog.Options{ToolsDir: userToolsDir()})}
 	root := cmd.NewRoot(f)
 	root.SetArgs(args)
 	if err := root.Execute(); err != nil {
@@ -36,4 +38,12 @@ func jsonFlagRequested(args []string) bool {
 		}
 	}
 	return false
+}
+
+func userToolsDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".config", "clix", "tools")
 }

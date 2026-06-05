@@ -68,6 +68,7 @@ func NewRoot(f *cmdutil.Factory) *cobra.Command {
 		return nil
 	})
 	root.AddCommand(NewCheck(f))
+	root.AddCommand(NewTools(f))
 	return root
 }
 

@@ -13,6 +13,11 @@ func NewCheck(f *cmdutil.Factory) *cobra.Command {
 		Short: "Check clix configuration and state",
 		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if f.CatalogLoader != nil {
+				if _, err := f.CatalogLoader.Load(); err != nil {
+					return err
+				}
+			}
 			_, err := fmt.Fprintln(f.IO.Out, "ok")
 			return err
 		},
