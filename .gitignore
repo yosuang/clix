@@ -4,6 +4,9 @@
 .pi
 .antigravitycli/
 
+# superpowers
+docs/superpowers/plans/
+
 # MacOS
 .DS_Store
 
