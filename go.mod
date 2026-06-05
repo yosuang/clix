@@ -5,6 +5,7 @@ go 1.26.3
 require (
 	github.com/cli/safeexec v1.0.1
 	github.com/goccy/go-yaml v1.19.2
+	github.com/mattn/go-sqlite3 v1.14.44
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/spf13/cobra v1.10.2
 )

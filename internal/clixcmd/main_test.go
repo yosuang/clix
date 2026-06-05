@@ -142,6 +142,32 @@ func TestRunCheckRejectsMalformedUserCatalog(t *testing.T) {
 	}
 }
 
+func TestRunCheckCreatesUserRunStore(t *testing.T) {
+	// #given
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	var stdout, stderr bytes.Buffer
+	ioStreams := iostreams.TestIO(nil, &stdout, &stderr, true)
+
+	// #when
+	exitCode := Run(ioStreams, []string{"check"})
+
+	// #then
+	if exitCode != 0 {
+		t.Fatalf("Run() exit code = %d, want 0; stderr = %q", exitCode, stderr.String())
+	}
+	if stdout.String() != "ok\n" {
+		t.Fatalf("stdout = %q, want ok newline", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(home, ".local", "share", "clix", "clix.db")); err != nil {
+		t.Fatalf("run store was not created: %v", err)
+	}
+}
+
 func writeUserTool(t *testing.T, home string, body string) {
 	t.Helper()
 	dir := filepath.Join(home, ".config", "clix", "tools")

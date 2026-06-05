@@ -18,6 +18,11 @@ func NewCheck(f *cmdutil.Factory) *cobra.Command {
 					return err
 				}
 			}
+			if f.RunStore != nil {
+				if _, err := f.RunStore.ListRuns(cmd.Context(), nil); err != nil {
+					return err
+				}
+			}
 			_, err := fmt.Fprintln(f.IO.Out, "ok")
 			return err
 		},
