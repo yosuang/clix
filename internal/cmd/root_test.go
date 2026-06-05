@@ -56,3 +56,18 @@ func TestUnknownCommandReturnsUsageErrorWithoutCobraSuggestions(t *testing.T) {
 		t.Fatalf("error = %q", got)
 	}
 }
+
+func TestRootDisablesCobraSuggestions(t *testing.T) {
+	// #given
+	var stdout, stderr bytes.Buffer
+	io := iostreams.TestIO(nil, &stdout, &stderr, true)
+	f := &cmdutil.Factory{IO: io}
+
+	// #when
+	root := NewRoot(f)
+
+	// #then
+	if !root.DisableSuggestions {
+		t.Fatal("DisableSuggestions = false, want true")
+	}
+}

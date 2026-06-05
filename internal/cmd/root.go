@@ -10,9 +10,10 @@ import (
 
 func NewRoot(f *cmdutil.Factory) *cobra.Command {
 	root := &cobra.Command{
-		Use:           "clix",
-		SilenceUsage:  true,
-		SilenceErrors: true,
+		Use:                "clix",
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return protocol.NewError(protocol.UsageError, fmt.Sprintf("unknown command %q", args[0]))
@@ -26,7 +27,6 @@ func NewRoot(f *cmdutil.Factory) *cobra.Command {
 	root.SetOut(f.IO.Out)
 	root.SetErr(f.IO.ErrOut)
 	root.CompletionOptions.DisableDefaultCmd = true
-	root.SuggestionsMinimumDistance = -1
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
 		return protocol.NewError(protocol.UsageError, err.Error())
 	})
