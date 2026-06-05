@@ -87,15 +87,28 @@ func TestParseJSONObjectPreservesJSONNumberPrecision(t *testing.T) {
 	}
 }
 
-func TestValidateReservedJQRejectsValue(t *testing.T) {
+func TestValidateReservedJQFlagRejectsWhenPresent(t *testing.T) {
 	// #given
-	value := ".id"
+	present := true
 
 	// #when
-	err := ValidateReservedJQ(value)
+	err := ValidateReservedJQFlag(present)
 
 	// #then
 	if err == nil || err.Error() != "USAGE_ERROR: --jq is reserved for future use" {
-		t.Fatalf("ValidateReservedJQ() error = %v", err)
+		t.Fatalf("ValidateReservedJQFlag() error = %v", err)
+	}
+}
+
+func TestValidateReservedJQFlagAllowsWhenAbsent(t *testing.T) {
+	// #given
+	present := false
+
+	// #when
+	err := ValidateReservedJQFlag(present)
+
+	// #then
+	if err != nil {
+		t.Fatalf("ValidateReservedJQFlag() error = %v", err)
 	}
 }

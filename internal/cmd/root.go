@@ -12,6 +12,7 @@ import (
 type OutputOptions = cmdutil.OutputOptions
 
 func NewRoot(f *cmdutil.Factory) *cobra.Command {
+	// Root output flags must run before child persistent hooks on future commands.
 	cobra.EnableTraverseRunHooks = true
 
 	var jsonFields string
