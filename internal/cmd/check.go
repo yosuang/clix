@@ -11,7 +11,7 @@ func NewCheck(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "check",
 		Short: "Check clix configuration and state",
-		Args:  cobra.NoArgs,
+		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, err := fmt.Fprintln(f.IO.Out, "ok")
 			return err

@@ -24,6 +24,7 @@ func NewRoot(f *cmdutil.Factory) *cobra.Command {
 			return cmd.Help()
 		},
 	}
+	root.SetIn(f.IO.In)
 	root.SetOut(f.IO.Out)
 	root.SetErr(f.IO.ErrOut)
 	root.CompletionOptions.DisableDefaultCmd = true

@@ -11,12 +11,17 @@ import (
 )
 
 func Main() {
-	io := iostreams.System()
+	os.Exit(Run(iostreams.System(), os.Args[1:]))
+}
+
+func Run(io *iostreams.IOStreams, args []string) int {
 	f := &cmdutil.Factory{IO: io}
 	root := cmd.NewRoot(f)
+	root.SetArgs(args)
 	if err := root.Execute(); err != nil {
 		perr := protocol.AsError(err)
 		_, _ = fmt.Fprintln(io.ErrOut, perr.Error())
-		os.Exit(protocol.ExitCode(perr))
+		return protocol.ExitCode(perr)
 	}
+	return 0
 }
