@@ -10,11 +10,12 @@ import (
 
 type RunOptions struct {
 	InputFlag string
+	InputSet  bool
 	StdinTTY  bool
 }
 
 func (o RunOptions) InputReader(stdin io.Reader) (io.Reader, error) {
-	if o.InputFlag != "" {
+	if o.InputSet {
 		if !o.StdinTTY {
 			piped, err := io.ReadAll(stdin)
 			if err != nil {

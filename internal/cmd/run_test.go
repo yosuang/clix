@@ -8,7 +8,7 @@ import (
 
 func TestInputSourceUsesInputFlagOverTTYStdin(t *testing.T) {
 	// #given
-	opts := RunOptions{InputFlag: `{"week":"current"}`, StdinTTY: true}
+	opts := RunOptions{InputFlag: `{"week":"current"}`, InputSet: true, StdinTTY: true}
 
 	// #when
 	got, err := opts.InputReader(strings.NewReader(""))
@@ -25,7 +25,7 @@ func TestInputSourceUsesInputFlagOverTTYStdin(t *testing.T) {
 
 func TestInputSourceRejectsInputFlagWithNonEmptyPipe(t *testing.T) {
 	// #given
-	opts := RunOptions{InputFlag: `{"week":"current"}`, StdinTTY: false}
+	opts := RunOptions{InputFlag: `{"week":"current"}`, InputSet: true, StdinTTY: false}
 
 	// #when
 	_, err := opts.InputReader(strings.NewReader(`{"other":true}`))
@@ -46,5 +46,22 @@ func TestInputSourceRejectsMissingTTYInput(t *testing.T) {
 	// #then
 	if err == nil || err.Error() != "VALIDATION_ERROR: input is required" {
 		t.Fatalf("InputReader() error = %v", err)
+	}
+}
+
+func TestInputSourceUsesExplicitEmptyInputFlag(t *testing.T) {
+	// #given
+	opts := RunOptions{InputFlag: "", InputSet: true, StdinTTY: true}
+
+	// #when
+	got, err := opts.InputReader(strings.NewReader(""))
+
+	// #then
+	if err != nil {
+		t.Fatalf("InputReader() error = %v", err)
+	}
+	body, _ := io.ReadAll(got)
+	if string(body) != "" {
+		t.Fatalf("body = %q, want empty input flag", body)
 	}
 }
