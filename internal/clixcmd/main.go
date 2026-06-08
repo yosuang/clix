@@ -1,13 +1,17 @@
 package clixcmd
 
 import (
+	"context"
+	"encoding/json"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/yosuang/clix/internal/adapter"
 	"github.com/yosuang/clix/internal/catalog"
 	"github.com/yosuang/clix/internal/cmd"
 	"github.com/yosuang/clix/internal/cmdutil"
+	"github.com/yosuang/clix/internal/domain"
 	"github.com/yosuang/clix/internal/iostreams"
 	"github.com/yosuang/clix/internal/paths"
 	"github.com/yosuang/clix/internal/protocol"
@@ -41,26 +45,19 @@ func newFactory(io *iostreams.IOStreams) (*cmdutil.Factory, func(), error) {
 	if err != nil {
 		return nil, func() {}, err
 	}
-	loadedCatalog, err := catalog.Load(catalog.Options{ToolsDir: layout.ToolsDir})
-	if err != nil {
-		return nil, func() {}, err
+	catalogLoader := catalog.NewLoader(catalog.Options{ToolsDir: layout.ToolsDir})
+	runStore := &lazyRunStore{path: layout.DatabasePath}
+	runService := &lazyRunService{
+		catalogLoader: catalogLoader,
+		store:         runStore,
+		secrets:       environmentSecrets(),
 	}
-	runStore, err := store.Open(layout.DatabasePath)
-	if err != nil {
-		return nil, func() {}, err
-	}
-	adapters := adapter.NewRegistry(adapter.WithSecrets(environmentSecrets()))
-	runService := runservice.New(runservice.ServiceOptions{
-		Store:    runStore,
-		Catalog:  loadedCatalog,
-		Adapters: adapters,
-	})
 	cleanup := func() {
 		_ = runStore.Close()
 	}
 	return &cmdutil.Factory{
 		IO:            io,
-		CatalogLoader: loadedCatalogLoader{catalog: loadedCatalog},
+		CatalogLoader: catalogLoader,
 		RunStore:      runStore,
 		RunService:    runService,
 	}, cleanup, nil
@@ -94,10 +91,129 @@ func environmentSecrets() map[string]string {
 	return secrets
 }
 
-type loadedCatalogLoader struct {
-	catalog catalog.Catalog
+type lazyRunStore struct {
+	path string
+	db   *store.SQLite
 }
 
-func (l loadedCatalogLoader) Load() (catalog.Catalog, error) {
-	return l.catalog, nil
+func (s *lazyRunStore) Close() error {
+	if s.db == nil {
+		return nil
+	}
+	return s.db.Close()
+}
+
+func (s *lazyRunStore) open() (*store.SQLite, error) {
+	if s.db != nil {
+		return s.db, nil
+	}
+	db, err := store.Open(s.path)
+	if err != nil {
+		return nil, err
+	}
+	s.db = db
+	return db, nil
+}
+
+func (s *lazyRunStore) InsertRun(ctx context.Context, run domain.Run) error {
+	db, err := s.open()
+	if err != nil {
+		return err
+	}
+	return db.InsertRun(ctx, run)
+}
+
+func (s *lazyRunStore) GetRun(ctx context.Context, id string) (domain.Run, error) {
+	db, err := s.open()
+	if err != nil {
+		return domain.Run{}, err
+	}
+	return db.GetRun(ctx, id)
+}
+
+func (s *lazyRunStore) ListRuns(ctx context.Context, status *domain.Status) ([]domain.Run, error) {
+	db, err := s.open()
+	if err != nil {
+		return nil, err
+	}
+	return db.ListRuns(ctx, status)
+}
+
+func (s *lazyRunStore) ClaimPendingRun(ctx context.Context, id string, startedAt time.Time) (domain.Run, error) {
+	db, err := s.open()
+	if err != nil {
+		return domain.Run{}, err
+	}
+	return db.ClaimPendingRun(ctx, id, startedAt)
+}
+
+func (s *lazyRunStore) MarkSucceeded(ctx context.Context, id string, finishedAt time.Time) error {
+	db, err := s.open()
+	if err != nil {
+		return err
+	}
+	return db.MarkSucceeded(ctx, id, finishedAt)
+}
+
+func (s *lazyRunStore) MarkFailed(ctx context.Context, id string, finishedAt time.Time, code protocol.Code, message string) error {
+	db, err := s.open()
+	if err != nil {
+		return err
+	}
+	return db.MarkFailed(ctx, id, finishedAt, code, message)
+}
+
+func (s *lazyRunStore) MarkRejected(ctx context.Context, id string, finishedAt time.Time) error {
+	db, err := s.open()
+	if err != nil {
+		return err
+	}
+	return db.MarkRejected(ctx, id, finishedAt)
+}
+
+type lazyRunService struct {
+	catalogLoader cmdutil.CatalogLoader
+	store         *lazyRunStore
+	secrets       map[string]string
+	service       *runservice.Service
+}
+
+func (s *lazyRunService) serviceInstance() (*runservice.Service, error) {
+	if s.service != nil {
+		return s.service, nil
+	}
+	loadedCatalog, err := s.catalogLoader.Load()
+	if err != nil {
+		return nil, err
+	}
+	s.service = runservice.New(runservice.ServiceOptions{
+		Store:    s.store,
+		Catalog:  loadedCatalog,
+		Adapters: adapter.NewRegistry(adapter.WithSecrets(s.secrets)),
+	})
+	return s.service, nil
+}
+
+func (s *lazyRunService) Run(ctx context.Context, toolName string, input json.RawMessage) (runservice.Result, error) {
+	service, err := s.serviceInstance()
+	if err != nil {
+		return runservice.Result{}, err
+	}
+	return service.Run(ctx, toolName, input)
+}
+
+func (s *lazyRunService) Approve(ctx context.Context, runID string) (runservice.Result, error) {
+	service, err := s.serviceInstance()
+	if err != nil {
+		return runservice.Result{}, err
+	}
+	return service.Approve(ctx, runID)
+}
+
+func (s *lazyRunService) Reject(ctx context.Context, runID string) (domain.Run, error) {
+	service, err := s.serviceInstance()
+	if err != nil {
+		return domain.Run{}, err
+	}
+	return service.Reject(ctx, runID)
 }

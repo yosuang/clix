@@ -65,6 +65,30 @@ func TestRunHelpSubprocess(t *testing.T) {
 	os.Exit(exitCode)
 }
 
+func TestRunHelpIgnoresMalformedUserCatalog(t *testing.T) {
+	// #given
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	writeUserTool(t, home, strings.Replace(userToolYAML(), "  method: GET\n", "", 1))
+	var stdout, stderr bytes.Buffer
+	ioStreams := iostreams.TestIO(nil, &stdout, &stderr, true)
+
+	// #when
+	exitCode := Run(ioStreams, []string{"--help"})
+
+	// #then
+	if exitCode != 0 {
+		t.Fatalf("Run() exit code = %d, want 0; stderr = %q", exitCode, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Usage:\n  clix") {
+		t.Fatalf("stdout = %q, want root usage", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
 func TestRunRendersJSONErrorWhenJSONRequested(t *testing.T) {
 	// #given
 	var stdout, stderr bytes.Buffer
@@ -203,7 +227,7 @@ func TestRunCheckCreatesUserRunStore(t *testing.T) {
 	}
 }
 
-func TestNewFactoryWiresRunServiceAndStore(t *testing.T) {
+func TestNewFactoryWiresRunServiceAndStoreLazily(t *testing.T) {
 	// #given
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -233,8 +257,8 @@ func TestNewFactoryWiresRunServiceAndStore(t *testing.T) {
 	if _, ok := loaded.Get("weekly.get_records"); !ok {
 		t.Fatal("catalog is missing weekly.get_records")
 	}
-	if _, err := os.Stat(filepath.Join(home, ".local", "share", "clix", "clix.db")); err != nil {
-		t.Fatalf("run store was not created: %v", err)
+	if _, err := os.Stat(filepath.Join(home, ".local", "share", "clix", "clix.db")); !os.IsNotExist(err) {
+		t.Fatalf("run store was opened during factory creation: %v", err)
 	}
 }
 
