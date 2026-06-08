@@ -46,6 +46,9 @@ func WithHTTPClient(client *http.Client) HTTPOption {
 
 func (a *HTTPAdapter) Execute(ctx context.Context, tool domain.Tool, input json.RawMessage) (json.RawMessage, error) {
 	secrets := a.secretsForTool(tool)
+	if _, _, err := protocol.ParseJSONObject(bytes.NewReader(input)); err != nil {
+		return nil, err
+	}
 
 	method, ok := tool.AdapterConfig["method"].(string)
 	if !ok || method == "" {

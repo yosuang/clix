@@ -42,6 +42,28 @@ func TestHTTPAdapterGETReturnsJSON(t *testing.T) {
 	}
 }
 
+func TestHTTPAdapterRejectsInputWithTrailingJSONValue(t *testing.T) {
+	// #given
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	t.Cleanup(server.Close)
+	tool := domain.Tool{
+		Name:          "weekly.get_records",
+		Adapter:       "http",
+		AdapterConfig: map[string]any{"method": "GET", "url": server.URL},
+	}
+
+	// #when
+	_, err := NewHTTPAdapter().Execute(context.Background(), tool, json.RawMessage(`{} true`))
+
+	// #then
+	if err == nil || err.Error() != "VALIDATION_ERROR: input must contain exactly one JSON object" {
+		t.Fatalf("Execute() error = %v", err)
+	}
+}
+
 func TestNewHTTPAdapterUsesPrivateDefaultTimeout(t *testing.T) {
 	// #given
 	adapter := NewHTTPAdapter()
