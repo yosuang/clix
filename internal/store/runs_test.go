@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"os"
 	"path/filepath"
@@ -79,6 +80,36 @@ func TestOpenReturnsStorageErrorWhenParentCannotBeCreated(t *testing.T) {
 		t.Fatal("Open() store != nil, want nil")
 	}
 	expectProtocolCode(t, err, protocol.StorageError)
+}
+
+func TestOpenMigratesExistingRunsTableMissingToolSourcePath(t *testing.T) {
+	// #given
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "state", "clix.db")
+	createLegacyRunsTable(t, dbPath)
+
+	// #when
+	store, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("Close() error = %v", err)
+		}
+	})
+	runs, err := store.ListRuns(ctx, nil)
+
+	// #then
+	if err != nil {
+		t.Fatalf("ListRuns() error = %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("ListRuns() len = %d, want 1", len(runs))
+	}
+	if runs[0].ToolSourcePath != "" {
+		t.Fatalf("ToolSourcePath = %q, want empty legacy value", runs[0].ToolSourcePath)
+	}
 }
 
 func TestStoreListRunsFiltersByStatus(t *testing.T) {
@@ -356,6 +387,45 @@ func openTestStore(t *testing.T) *SQLite {
 		}
 	})
 	return store
+}
+
+func createLegacyRunsTable(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	db, err := sql.Open("sqlite3", path)
+	if err != nil {
+		t.Fatalf("sql.Open() error = %v", err)
+	}
+	defer db.Close()
+	_, err = db.Exec(`
+CREATE TABLE runs (
+  id TEXT PRIMARY KEY,
+  tool_name TEXT NOT NULL,
+  effect TEXT NOT NULL,
+  tool_fingerprint TEXT NOT NULL,
+  input_json TEXT NOT NULL,
+  status TEXT NOT NULL,
+  requested_at TEXT NOT NULL,
+  approved_at TEXT,
+  started_at TEXT,
+  finished_at TEXT,
+  exit_code INTEGER,
+  error_code TEXT,
+  error_message TEXT
+);
+
+INSERT INTO runs (
+  id, tool_name, effect, tool_fingerprint, input_json, status, requested_at
+) VALUES (
+  'run_legacy', 'weekly.submit_report', 'write', 'fingerprint-write',
+  '{"week":"current","content":"done"}', 'pending_approval', '2026-06-05T12:01:00.123456789Z'
+);
+`)
+	if err != nil {
+		t.Fatalf("create legacy runs table error = %v", err)
+	}
 }
 
 func pendingWriteRun(id string) domain.Run {

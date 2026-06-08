@@ -3,7 +3,9 @@ package clixcmd
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 
@@ -28,6 +30,39 @@ func TestRunMapsUsageErrorToExitCodeTwo(t *testing.T) {
 	if stderr.String() != "USAGE_ERROR: unknown command \"extra\" for \"clix check\"\n" {
 		t.Fatalf("stderr = %q, want usage error", stderr.String())
 	}
+}
+
+func TestRunHelpPrintsUsageWithoutCrashing(t *testing.T) {
+	// #given
+	cmd := exec.Command(os.Args[0], "-test.run=^TestRunHelpSubprocess$")
+	cmd.Env = append(os.Environ(), "CLIX_HELP_SUBPROCESS=1")
+
+	// #when
+	output, err := cmd.CombinedOutput()
+
+	// #then
+	if err != nil {
+		t.Fatalf("help subprocess failed: %v\n%s", err, output)
+	}
+	if got := string(output); !strings.Contains(got, "Usage:\n  clix") {
+		t.Fatalf("help output = %q, want root usage", got)
+	}
+}
+
+func TestRunHelpSubprocess(t *testing.T) {
+	if os.Getenv("CLIX_HELP_SUBPROCESS") != "1" {
+		return
+	}
+
+	// #given
+	debug.SetMaxStack(1 << 20)
+	ioStreams := iostreams.TestIO(nil, os.Stdout, os.Stderr, true)
+
+	// #when
+	exitCode := Run(ioStreams, []string{"--help"})
+
+	// #then
+	os.Exit(exitCode)
 }
 
 func TestRunRendersJSONErrorWhenJSONRequested(t *testing.T) {

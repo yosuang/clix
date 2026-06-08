@@ -60,13 +60,6 @@ func NewRoot(f *cmdutil.Factory) *cobra.Command {
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
 		return protocol.NewError(protocol.UsageError, err.Error())
 	})
-	root.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		_, _ = fmt.Fprintln(f.IO.Out, cmd.UsageString())
-	})
-	root.SetUsageFunc(func(cmd *cobra.Command) error {
-		_, _ = fmt.Fprintln(f.IO.ErrOut, cmd.UsageString())
-		return nil
-	})
 	root.AddCommand(NewCheck(f))
 	root.AddCommand(NewTools(f))
 	return root

@@ -59,5 +59,38 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE INDEX IF NOT EXISTS idx_runs_status_requested_at
 ON runs(status, requested_at);
 `)
+	if err != nil {
+		return err
+	}
+	return s.ensureRunsToolSourcePath()
+}
+
+func (s *SQLite) ensureRunsToolSourcePath() error {
+	rows, err := s.db.Query(`PRAGMA table_info(runs)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			cid          int
+			name         string
+			columnType   string
+			notNull      int
+			defaultValue sql.NullString
+			primaryKey   int
+		)
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return err
+		}
+		if name == "tool_source_path" {
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`ALTER TABLE runs ADD COLUMN tool_source_path TEXT NOT NULL DEFAULT ''`)
 	return err
 }
