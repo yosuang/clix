@@ -1,1 +1,1 @@
-- [ ] mvp
+- [ ] Implement clix MVP from docs/superpowers/plans/2026-06-05-clix-mvp.md

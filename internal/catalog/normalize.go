@@ -83,6 +83,7 @@ func fingerprintTool(tool domain.Tool) (string, error) {
 	sort.Strings(secrets)
 	definition := fingerprintDefinition{
 		Name:          tool.Name,
+		Description:   tool.Description,
 		Effect:        tool.Effect,
 		InputSchema:   tool.InputSchema,
 		OutputSchema:  tool.OutputSchema,
@@ -100,6 +101,7 @@ func fingerprintTool(tool domain.Tool) (string, error) {
 
 type fingerprintDefinition struct {
 	Name          string         `json:"name"`
+	Description   string         `json:"description"`
 	Effect        domain.Effect  `json:"effect"`
 	InputSchema   map[string]any `json:"input_schema"`
 	OutputSchema  map[string]any `json:"output_schema"`
