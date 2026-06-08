@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/yosuang/clix/internal/adapter"
+	catalogpkg "github.com/yosuang/clix/internal/catalog"
 	"github.com/yosuang/clix/internal/domain"
 	"github.com/yosuang/clix/internal/protocol"
 )
@@ -96,6 +99,46 @@ func TestRunValidatesInputBeforeInsert(t *testing.T) {
 
 	// #then
 	if err == nil || err.Error() != "VALIDATION_ERROR: input.week is required" {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if store.Inserts != 0 {
+		t.Fatalf("inserts = %d, want 0", store.Inserts)
+	}
+}
+
+func TestRunRejectsTrailingJSONValueBeforeInsert(t *testing.T) {
+	// #given
+	dir := t.TempDir()
+	writeRunserviceTool(t, dir, `version: 1
+name: weekly.get_records
+description: Get work records for a given week.
+adapter: http
+effect: read
+input_schema:
+  type: object
+  additionalProperties: false
+  required: [week]
+  properties:
+    week:
+      type: string
+output_schema:
+  type: object
+http:
+  method: GET
+  url: https://example.com/records
+`)
+	catalog, err := catalogpkg.Load(catalogpkg.Options{ToolsDir: dir})
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	store := newMemoryStore()
+	service := New(ServiceOptions{Store: store, Catalog: catalog, Adapters: newMemoryAdapters(nil), IDs: fixedIDs("run_invalid")})
+
+	// #when
+	_, err = service.Run(context.Background(), "weekly.get_records", []byte(`{"week":"current"} true`))
+
+	// #then
+	if err == nil || err.Error() != "VALIDATION_ERROR: input must contain exactly one JSON object" {
 		t.Fatalf("Run() error = %v", err)
 	}
 	if store.Inserts != 0 {
@@ -287,6 +330,14 @@ func writeTool() domain.Tool {
 		Effect:      domain.EffectWrite,
 		SourcePath:  "tools/weekly.submit_report.yaml",
 		Fingerprint: "fingerprint-write",
+	}
+}
+
+func writeRunserviceTool(t *testing.T, dir string, body string) {
+	t.Helper()
+	path := filepath.Join(dir, "tool.yaml")
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -43,6 +44,10 @@ func (c Catalog) ValidateInput(toolName string, input json.RawMessage) error {
 	var value any
 	if err := decoder.Decode(&value); err != nil {
 		return protocol.NewError(protocol.ValidationError, "input must be valid JSON")
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		return protocol.NewError(protocol.ValidationError, "input must contain exactly one JSON object")
 	}
 	if err := tool.ValidateInput(value); err != nil {
 		return validationError(err)

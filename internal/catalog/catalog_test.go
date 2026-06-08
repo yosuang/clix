@@ -172,6 +172,24 @@ func TestCatalogValidateInputReturnsProtocolValidationError(t *testing.T) {
 	}
 }
 
+func TestCatalogValidateInputRejectsTrailingJSONValue(t *testing.T) {
+	// #given
+	dir := t.TempDir()
+	writeTool(t, dir, "tool.yaml", validTool("weekly.get_records", "https://example.com/records"))
+	catalog, err := Load(Options{ToolsDir: dir, AdapterValidator: &acceptHTTP{}})
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	// #when
+	err = catalog.ValidateInput("weekly.get_records", []byte(`{"week":"current"} true`))
+
+	// #then
+	if err == nil || err.Error() != "VALIDATION_ERROR: input must contain exactly one JSON object" {
+		t.Fatalf("ValidateInput() error = %v", err)
+	}
+}
+
 func TestLoadCatalogRejectsMalformedHTTPConfig(t *testing.T) {
 	// #given
 	dir := t.TempDir()
