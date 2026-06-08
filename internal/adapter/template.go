@@ -3,6 +3,7 @@ package adapter
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -85,6 +86,10 @@ func inputObject(input json.RawMessage) (map[string]any, error) {
 	decoder.UseNumber()
 	var fields map[string]any
 	if err := decoder.Decode(&fields); err != nil {
+		return nil, protocol.NewError(protocol.ValidationError, "input must be valid JSON")
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
 		return nil, protocol.NewError(protocol.ValidationError, "input must be valid JSON")
 	}
 	if fields == nil {

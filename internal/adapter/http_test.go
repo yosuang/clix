@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/yosuang/clix/internal/domain"
+	"github.com/yosuang/clix/internal/protocol"
 )
 
 func TestHTTPAdapterGETReturnsJSON(t *testing.T) {
@@ -35,6 +37,22 @@ func TestHTTPAdapterGETReturnsJSON(t *testing.T) {
 	}
 	if string(out) != `{"records":[]}` {
 		t.Fatalf("out = %s", out)
+	}
+}
+
+func TestNewHTTPAdapterUsesPrivateDefaultTimeout(t *testing.T) {
+	// #given
+	adapter := NewHTTPAdapter()
+
+	// #when
+	client := adapter.client
+
+	// #then
+	if client == http.DefaultClient {
+		t.Fatal("client = http.DefaultClient")
+	}
+	if client.Timeout <= 0 {
+		t.Fatalf("client.Timeout = %s, want bounded timeout", client.Timeout)
 	}
 }
 
@@ -83,6 +101,54 @@ func TestHTTPAdapterPOSTSJSONBodyAndHeaders(t *testing.T) {
 	}
 	if string(out) != `{"ok":true}` {
 		t.Fatalf("out = %s", out)
+	}
+}
+
+func TestHTTPAdapterRejectsUndeclaredSecret(t *testing.T) {
+	// #given
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	t.Cleanup(server.Close)
+	tool := domain.Tool{
+		Name:    "weekly.submit_report",
+		Adapter: "http",
+		Secrets: []string{"WORK_API_TOKEN"},
+		AdapterConfig: map[string]any{
+			"method":  "POST",
+			"url":     server.URL + "/reports",
+			"headers": map[string]any{"Authorization": "Bearer ${secrets.ADMIN_TOKEN}"},
+		},
+	}
+	env := map[string]string{"ADMIN_TOKEN": "do-not-leak", "WORK_API_TOKEN": "secret-token"}
+
+	// #when
+	_, err := NewHTTPAdapter(WithSecrets(env)).Execute(context.Background(), tool, json.RawMessage(`{}`))
+
+	// #then
+	if err == nil || err.Error() != "MISSING_SECRET: secret ADMIN_TOKEN is required" {
+		t.Fatalf("Execute() error = %v", err)
+	}
+}
+
+func TestHTTPAdapterTimesOutHungServer(t *testing.T) {
+	// #given
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	t.Cleanup(server.Close)
+	tool := domain.Tool{Name: "weekly.get_records", Adapter: "http", AdapterConfig: map[string]any{"method": "GET", "url": server.URL}}
+	client := &http.Client{Timeout: 20 * time.Millisecond}
+
+	// #when
+	_, err := NewHTTPAdapter(WithHTTPClient(client)).Execute(context.Background(), tool, json.RawMessage(`{}`))
+
+	// #then
+	perr := protocol.AsError(err)
+	if perr == nil || perr.Code != protocol.AdapterError {
+		t.Fatalf("Execute() error = %v", err)
 	}
 }
 

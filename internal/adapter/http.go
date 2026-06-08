@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/yosuang/clix/internal/domain"
 	"github.com/yosuang/clix/internal/protocol"
@@ -19,8 +20,10 @@ type HTTPAdapter struct {
 	secrets map[string]string
 }
 
+const defaultHTTPTimeout = 30 * time.Second
+
 func NewHTTPAdapter(options ...HTTPOption) *HTTPAdapter {
-	adapter := &HTTPAdapter{client: http.DefaultClient, secrets: map[string]string{}}
+	adapter := &HTTPAdapter{client: &http.Client{Timeout: defaultHTTPTimeout}, secrets: map[string]string{}}
 	for _, option := range options {
 		option(adapter)
 	}
@@ -33,7 +36,17 @@ func WithSecrets(secrets map[string]string) HTTPOption {
 	}
 }
 
+func WithHTTPClient(client *http.Client) HTTPOption {
+	return func(adapter *HTTPAdapter) {
+		if client != nil {
+			adapter.client = client
+		}
+	}
+}
+
 func (a *HTTPAdapter) Execute(ctx context.Context, tool domain.Tool, input json.RawMessage) (json.RawMessage, error) {
+	secrets := a.secretsForTool(tool)
+
 	method, ok := tool.AdapterConfig["method"].(string)
 	if !ok || method == "" {
 		return nil, protocol.NewError(protocol.ToolCatalogError, tool.Name+" http.method is required")
@@ -43,7 +56,7 @@ func (a *HTTPAdapter) Execute(ctx context.Context, tool domain.Tool, input json.
 	if !ok || urlTemplate == "" {
 		return nil, protocol.NewError(protocol.ToolCatalogError, tool.Name+" http.url is required")
 	}
-	url, err := renderTemplate(urlTemplate, input, a.secrets)
+	url, err := renderTemplate(urlTemplate, input, secrets)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +64,7 @@ func (a *HTTPAdapter) Execute(ctx context.Context, tool domain.Tool, input json.
 	var body io.Reader
 	hasBody := false
 	if rawBody, exists := tool.AdapterConfig["json_body"]; exists {
-		renderedBody, err := renderJSONValue(rawBody, input, a.secrets)
+		renderedBody, err := renderJSONValue(rawBody, input, secrets)
 		if err != nil {
 			return nil, err
 		}
@@ -68,7 +81,7 @@ func (a *HTTPAdapter) Execute(ctx context.Context, tool domain.Tool, input json.
 		return nil, protocol.NewError(protocol.AdapterError, err.Error())
 	}
 
-	headers, err := renderHeaders(tool.AdapterConfig["headers"], input, a.secrets)
+	headers, err := renderHeaders(tool.AdapterConfig["headers"], input, secrets)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +107,16 @@ func (a *HTTPAdapter) Execute(ctx context.Context, tool domain.Tool, input json.
 		return nil, err
 	}
 	return out, nil
+}
+
+func (a *HTTPAdapter) secretsForTool(tool domain.Tool) map[string]string {
+	secrets := make(map[string]string, len(tool.Secrets))
+	for _, name := range tool.Secrets {
+		if value, ok := a.secrets[name]; ok {
+			secrets[name] = value
+		}
+	}
+	return secrets
 }
 
 func renderHeaders(raw any, input json.RawMessage, secrets map[string]string) (map[string]string, error) {

@@ -48,6 +48,19 @@ func TestRenderTemplateRejectsMissingInputField(t *testing.T) {
 	}
 }
 
+func TestRenderTemplateRejectsInputWithTrailingGarbage(t *testing.T) {
+	// #given
+	input := json.RawMessage(`{"week":"current"} nope`)
+
+	// #when
+	_, err := renderTemplate("${input.week}", input, map[string]string{})
+
+	// #then
+	if err == nil || err.Error() != "VALIDATION_ERROR: input must be valid JSON" {
+		t.Fatalf("renderTemplate() error = %v", err)
+	}
+}
+
 func TestRenderTemplateRejectsUnsupportedExpression(t *testing.T) {
 	// #given
 	input := json.RawMessage(`{"week":"current"}`)
