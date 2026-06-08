@@ -60,7 +60,11 @@ func NewRoot(f *cmdutil.Factory) *cobra.Command {
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
 		return protocol.NewError(protocol.UsageError, err.Error())
 	})
+	root.AddCommand(NewApprove(f))
 	root.AddCommand(NewCheck(f))
+	root.AddCommand(NewReject(f))
+	root.AddCommand(NewRun(f))
+	root.AddCommand(NewRuns(f))
 	root.AddCommand(NewTools(f))
 	return root
 }
