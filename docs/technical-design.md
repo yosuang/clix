@@ -592,7 +592,7 @@ Storage rules:
 - `runs get` default text output does not show input.
 - `runs get --json input` may expose stored input explicitly.
 
-The fingerprint is computed per normalized tool definition. It includes the tool name, effect, schemas, adapter name, adapter config, and declared secret names. It excludes the source path and resolved secret values.
+The fingerprint is computed per normalized tool definition. It includes the tool name, description, effect, schemas, adapter name, adapter config, and declared secret names. It excludes the source path and resolved secret values.
 
 ## Implementation Plan
 
