@@ -183,6 +183,56 @@ func TestRootStoresJSONFieldsInFactory(t *testing.T) {
 	}
 }
 
+func TestRootHelpShowsJSONAndJQConventionsWithoutJQShorthand(t *testing.T) {
+	// #given
+	var stdout, stderr bytes.Buffer
+	io := iostreams.TestIO(nil, &stdout, &stderr, true)
+	f := &cmdutil.Factory{IO: io}
+	root := NewRoot(f)
+	root.SetArgs([]string{"--help"})
+
+	// #when
+	err := root.Execute()
+
+	// #then
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	got := stdout.String()
+	for _, want := range []string{
+		"--jq expression",
+		"Filter JSON output using a jq expression",
+		"--json fields",
+		"Output JSON with the specified fields",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("help output = %q, want to contain %q", got, want)
+		}
+	}
+	if strings.Contains(got, "-q, --jq") {
+		t.Fatalf("help output = %q, must not contain jq shorthand", got)
+	}
+	if stderr.String() != "" {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestNormalizeArgsUsesRegisteredCommandsForMissingJSONFields(t *testing.T) {
+	// #given
+	root := &cobra.Command{Use: "clix"}
+	root.AddCommand(&cobra.Command{Use: "version"})
+	args := []string{"--json", "version"}
+
+	// #when
+	got := NormalizeArgs(root, args)
+
+	// #then
+	want := []string{"--json", allJSONFieldsFlagValue, "version"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("NormalizeArgs() = %#v, want %#v", got, want)
+	}
+}
+
 type recordingRunStore struct {
 	listCalled bool
 }

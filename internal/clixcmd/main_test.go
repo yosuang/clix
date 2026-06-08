@@ -131,23 +131,28 @@ func TestRunRendersJSONErrorForInvalidJSONFields(t *testing.T) {
 	}
 }
 
-func TestRunRendersJSONErrorWhenJSONValueMissing(t *testing.T) {
+func TestRunRendersAllJSONFieldsWhenJSONValueIsMissing(t *testing.T) {
 	// #given
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	writeUserTool(t, home, userToolYAML())
 	var stdout, stderr bytes.Buffer
 	ioStreams := iostreams.TestIO(nil, &stdout, &stderr, true)
 
 	// #when
-	exitCode := Run(ioStreams, []string{"--json"})
+	exitCode := Run(ioStreams, []string{"--json", "tools", "list"})
 
 	// #then
-	if exitCode != 2 {
-		t.Fatalf("Run() exit code = %d, want 2", exitCode)
+	if exitCode != 0 {
+		t.Fatalf("Run() exit code = %d, want 0; stderr = %q", exitCode, stderr.String())
 	}
-	if stdout.String() != "" {
-		t.Fatalf("stdout = %q, want empty", stdout.String())
+	want := "[{\"adapter\":\"http\",\"description\":\"Get work records for a given week.\",\"effect\":\"read\",\"input_schema\":{\"additionalProperties\":false,\"properties\":{\"week\":{\"type\":\"string\"}},\"required\":[\"week\"],\"type\":\"object\"},\"name\":\"weekly.get_records\",\"output_schema\":{\"type\":\"object\"}}]\n"
+	if stdout.String() != want {
+		t.Fatalf("stdout = %q, want %q", stdout.String(), want)
 	}
-	if !strings.HasPrefix(stderr.String(), `{"ok":false,"code":"USAGE_ERROR","message":`) {
-		t.Fatalf("stderr = %q, want JSON usage error", stderr.String())
+	if stderr.String() != "" {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 }
 

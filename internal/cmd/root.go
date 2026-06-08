@@ -11,6 +11,8 @@ import (
 
 type OutputOptions = cmdutil.OutputOptions
 
+const allJSONFieldsFlagValue = "\x00"
+
 func NewRoot(f *cmdutil.Factory) *cobra.Command {
 	// Root output flags must run before child persistent hooks on future commands.
 	cobra.EnableTraverseRunHooks = true
@@ -55,8 +57,8 @@ func NewRoot(f *cmdutil.Factory) *cobra.Command {
 	root.SetOut(f.IO.Out)
 	root.SetErr(f.IO.ErrOut)
 	root.CompletionOptions.DisableDefaultCmd = true
-	root.PersistentFlags().StringVar(&jsonFields, "json", "", "select top-level JSON fields")
-	root.PersistentFlags().StringVar(&jqExpr, "jq", "", "reserved for future use")
+	root.PersistentFlags().StringVar(&jsonFields, "json", "", "Output JSON with the specified `fields`")
+	root.PersistentFlags().StringVar(&jqExpr, "jq", "", "Filter JSON output using a jq `expression`")
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
 		return protocol.NewError(protocol.UsageError, err.Error())
 	})
@@ -69,7 +71,52 @@ func NewRoot(f *cmdutil.Factory) *cobra.Command {
 	return root
 }
 
+func NormalizeArgs(root *cobra.Command, args []string) []string {
+	commandNames := collectCommandNames(root)
+	normalized := make([]string, 0, len(args)+1)
+	for i, arg := range args {
+		normalized = append(normalized, arg)
+		if arg == "--json" && jsonFlagOmitsFields(args, i, commandNames) {
+			normalized = append(normalized, allJSONFieldsFlagValue)
+		}
+	}
+	return normalized
+}
+
+func collectCommandNames(root *cobra.Command) map[string]struct{} {
+	names := map[string]struct{}{"help": {}}
+	var visit func(*cobra.Command)
+	visit = func(cmd *cobra.Command) {
+		for _, child := range cmd.Commands() {
+			if name := child.Name(); name != "" {
+				names[name] = struct{}{}
+			}
+			for _, alias := range child.Aliases {
+				names[alias] = struct{}{}
+			}
+			visit(child)
+		}
+	}
+	visit(root)
+	return names
+}
+
+func jsonFlagOmitsFields(args []string, index int, commandNames map[string]struct{}) bool {
+	if index+1 >= len(args) {
+		return true
+	}
+	next := args[index+1]
+	if strings.HasPrefix(next, "-") {
+		return true
+	}
+	_, ok := commandNames[next]
+	return ok
+}
+
 func parseJSONFields(value string) ([]string, error) {
+	if value == "" || value == allJSONFieldsFlagValue {
+		return nil, nil
+	}
 	fields := strings.Split(value, ",")
 	for _, field := range fields {
 		if field == "" {

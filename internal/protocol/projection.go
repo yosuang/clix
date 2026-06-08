@@ -3,6 +3,9 @@ package protocol
 import "fmt"
 
 func Project(source map[string]any, fields []string) (map[string]any, error) {
+	if len(fields) == 0 {
+		return source, nil
+	}
 	out := make(map[string]any, len(fields))
 	for _, field := range fields {
 		value, ok := source[field]

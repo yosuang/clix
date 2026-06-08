@@ -32,7 +32,7 @@ func Run(io *iostreams.IOStreams, args []string) int {
 	defer cleanup()
 
 	root := cmd.NewRoot(f)
-	root.SetArgs(args)
+	root.SetArgs(cmd.NormalizeArgs(root, args))
 	if err := root.Execute(); err != nil {
 		writeRunError(io, args, err)
 		return protocol.ExitCode(err)
