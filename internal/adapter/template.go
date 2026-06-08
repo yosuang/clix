@@ -15,6 +15,9 @@ var templateExpressionPattern = regexp.MustCompile(`\$\{([^}]*)\}`)
 func renderTemplate(template string, input json.RawMessage, secrets map[string]string) (string, error) {
 	matches := templateExpressionPattern.FindAllStringSubmatchIndex(template, -1)
 	if len(matches) == 0 {
+		if strings.Contains(template, "${") {
+			return "", unsupportedTemplateExpression()
+		}
 		return template, nil
 	}
 
@@ -26,6 +29,9 @@ func renderTemplate(template string, input json.RawMessage, secrets map[string]s
 	var rendered strings.Builder
 	last := 0
 	for _, match := range matches {
+		if strings.Contains(template[last:match[0]], "${") {
+			return "", unsupportedTemplateExpression()
+		}
 		rendered.WriteString(template[last:match[0]])
 		expression := template[match[2]:match[3]]
 		value, err := renderExpression(expression, inputFields, secrets)
@@ -34,6 +40,9 @@ func renderTemplate(template string, input json.RawMessage, secrets map[string]s
 		}
 		rendered.WriteString(value)
 		last = match[1]
+	}
+	if strings.Contains(template[last:], "${") {
+		return "", unsupportedTemplateExpression()
 	}
 	rendered.WriteString(template[last:])
 	return rendered.String(), nil
@@ -65,6 +74,10 @@ func renderExpression(expression string, input map[string]any, secrets map[strin
 	}
 
 	return "", protocol.NewError(protocol.ValidationError, "unsupported template expression")
+}
+
+func unsupportedTemplateExpression() error {
+	return protocol.NewError(protocol.ValidationError, "unsupported template expression")
 }
 
 func inputObject(input json.RawMessage) (map[string]any, error) {

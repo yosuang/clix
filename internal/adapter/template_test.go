@@ -60,3 +60,16 @@ func TestRenderTemplateRejectsUnsupportedExpression(t *testing.T) {
 		t.Fatalf("renderTemplate() error = %v", err)
 	}
 }
+
+func TestRenderTemplateRejectsUnclosedExpression(t *testing.T) {
+	// #given
+	input := json.RawMessage(`{"week":"current"}`)
+
+	// #when
+	_, err := renderTemplate("Bearer ${input.week", input, map[string]string{})
+
+	// #then
+	if err == nil || err.Error() != "VALIDATION_ERROR: unsupported template expression" {
+		t.Fatalf("renderTemplate() error = %v", err)
+	}
+}
