@@ -203,6 +203,41 @@ func TestRunCheckCreatesUserRunStore(t *testing.T) {
 	}
 }
 
+func TestNewFactoryWiresRunServiceAndStore(t *testing.T) {
+	// #given
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	writeUserTool(t, home, userToolYAML())
+	var stdout, stderr bytes.Buffer
+	ioStreams := iostreams.TestIO(nil, &stdout, &stderr, true)
+
+	// #when
+	f, cleanup, err := newFactory(ioStreams)
+	if err != nil {
+		t.Fatalf("newFactory() error = %v", err)
+	}
+	defer cleanup()
+
+	// #then
+	if f.RunService == nil {
+		t.Fatal("RunService = nil")
+	}
+	if f.RunStore == nil {
+		t.Fatal("RunStore = nil")
+	}
+	loaded, err := f.CatalogLoader.Load()
+	if err != nil {
+		t.Fatalf("CatalogLoader.Load() error = %v", err)
+	}
+	if _, ok := loaded.Get("weekly.get_records"); !ok {
+		t.Fatal("catalog is missing weekly.get_records")
+	}
+	if _, err := os.Stat(filepath.Join(home, ".local", "share", "clix", "clix.db")); err != nil {
+		t.Fatalf("run store was not created: %v", err)
+	}
+}
+
 func writeUserTool(t *testing.T, home string, body string) {
 	t.Helper()
 	dir := filepath.Join(home, ".config", "clix", "tools")

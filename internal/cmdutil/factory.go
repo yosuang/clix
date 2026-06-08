@@ -2,12 +2,14 @@ package cmdutil
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/yosuang/clix/internal/catalog"
 	"github.com/yosuang/clix/internal/domain"
 	"github.com/yosuang/clix/internal/iostreams"
 	"github.com/yosuang/clix/internal/protocol"
+	"github.com/yosuang/clix/internal/runservice"
 )
 
 type OutputOptions struct {
@@ -31,9 +33,16 @@ type RunStore interface {
 	MarkRejected(context.Context, string, time.Time) error
 }
 
+type RunService interface {
+	Run(context.Context, string, json.RawMessage) (runservice.Result, error)
+	Approve(context.Context, string) (runservice.Result, error)
+	Reject(context.Context, string) (domain.Run, error)
+}
+
 type Factory struct {
 	IO            *iostreams.IOStreams
 	Output        OutputOptions
 	CatalogLoader CatalogLoader
 	RunStore      RunStore
+	RunService    RunService
 }
