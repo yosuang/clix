@@ -40,7 +40,7 @@
       "source": "tw93/Waza",
       "ref": "main",
       "sourceType": "github",
-      "computedHash": "e6e342526affdc7662b1a766dbe95da2b324265e7c082075257fa455e87e1a51",
+      "computedHash": "20939be12bd3e1bfb48c780f901282f0396d54ba80316f72449dfb72824d17f1",
       "claude-plugin": "waza"
     },
     "receiving-code-review": {
@@ -82,7 +82,7 @@
       "source": "tw93/Waza",
       "ref": "main",
       "sourceType": "github",
-      "computedHash": "ebad902f4c913f9272ccfa6491ac35c08ea0e4397caa54c7605f857c59257e81",
+      "computedHash": "736499a0ac8f63a143543d8f8b3826490c77b60761a2004d62bd10d69587b979",
       "claude-plugin": "waza"
     },
     "using-git-worktrees": {
@@ -110,7 +110,7 @@
       "source": "tw93/Waza",
       "ref": "main",
       "sourceType": "github",
-      "computedHash": "14ad15dbf5f669094d59101967b789cad9d44fe656efcc2017eccffe587f2355",
+      "computedHash": "ab796e39cb270ef774829cda695a6b22a4fc0dde5d2883a1d77f46f968a70a64",
       "claude-plugin": "waza"
     },
     "writing-plans": {
