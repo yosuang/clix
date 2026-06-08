@@ -57,6 +57,7 @@ func NewRoot(f *cmdutil.Factory) *cobra.Command {
 	root.SetOut(f.IO.Out)
 	root.SetErr(f.IO.ErrOut)
 	root.CompletionOptions.DisableDefaultCmd = true
+	root.SetHelpCommand(newHiddenHelpCommand())
 	root.PersistentFlags().StringVar(&jsonFields, "json", "", "Output JSON with the specified `fields`")
 	root.PersistentFlags().StringVar(&jqExpr, "jq", "", "Filter JSON output using a jq `expression`")
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
@@ -69,6 +70,24 @@ func NewRoot(f *cmdutil.Factory) *cobra.Command {
 	root.AddCommand(NewRuns(f))
 	root.AddCommand(NewTools(f))
 	return root
+}
+
+func newHiddenHelpCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:                "internal-help [command]",
+		Aliases:            []string{"help"},
+		Hidden:             true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			target, _, err := cmd.Root().Find(args)
+			if target == nil || err != nil {
+				return protocol.NewError(protocol.UsageError, fmt.Sprintf("unknown help topic %q", strings.Join(args, " ")))
+			}
+			target.InitDefaultHelpFlag()
+			target.InitDefaultVersionFlag()
+			return target.Help()
+		},
+	}
 }
 
 func NormalizeArgs(root *cobra.Command, args []string) []string {

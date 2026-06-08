@@ -217,6 +217,64 @@ func TestRootHelpShowsJSONAndJQConventionsWithoutJQShorthand(t *testing.T) {
 	}
 }
 
+func TestRootHelpDoesNotListHelpCommand(t *testing.T) {
+	// #given
+	var stdout, stderr bytes.Buffer
+	io := iostreams.TestIO(nil, &stdout, &stderr, true)
+	f := &cmdutil.Factory{IO: io}
+	root := NewRoot(f)
+	root.SetArgs([]string{"--help"})
+
+	// #when
+	err := root.Execute()
+
+	// #then
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	got := stdout.String()
+	if strings.Contains(got, "\n  help        Help about any command") {
+		t.Fatalf("help output = %q, must not list help command", got)
+	}
+	if !strings.Contains(got, `Use "clix [command] --help" for more information about a command.`) {
+		t.Fatalf("help output = %q, want command help hint", got)
+	}
+	if stderr.String() != "" {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestHelpCommandStillShowsCommandHelp(t *testing.T) {
+	// #given
+	var stdout, stderr bytes.Buffer
+	io := iostreams.TestIO(nil, &stdout, &stderr, true)
+	f := &cmdutil.Factory{IO: io}
+	root := NewRoot(f)
+	root.SetArgs([]string{"help", "run"})
+
+	// #when
+	err := root.Execute()
+
+	// #then
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	got := stdout.String()
+	for _, want := range []string{
+		"Run a tool",
+		"clix run <tool_name> [flags]",
+		"help for run",
+		"--input string",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("help output = %q, want to contain %q", got, want)
+		}
+	}
+	if stderr.String() != "" {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
 func TestNormalizeArgsUsesRegisteredCommandsForMissingJSONFields(t *testing.T) {
 	// #given
 	root := &cobra.Command{Use: "clix"}
