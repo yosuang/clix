@@ -3,9 +3,13 @@ package runservice
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/yosuang/clix/internal/adapter"
 	"github.com/yosuang/clix/internal/domain"
 	"github.com/yosuang/clix/internal/protocol"
 )
@@ -96,6 +100,44 @@ func TestRunValidatesInputBeforeInsert(t *testing.T) {
 	}
 	if store.Inserts != 0 {
 		t.Fatalf("inserts = %d, want 0", store.Inserts)
+	}
+}
+
+func TestRunDoesNotPersistSecretFromAdapterError(t *testing.T) {
+	// #given
+	secretValue := "secret-token-in-url"
+	store := newMemoryStore()
+	tool := readTool()
+	tool.Secrets = []string{"WORK_API_TOKEN"}
+	tool.AdapterConfig = map[string]any{
+		"method": "GET",
+		"url":    "https://example.invalid/records?token=${secrets.WORK_API_TOKEN}",
+	}
+	client := &http.Client{Transport: runserviceRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return nil, fmt.Errorf("request failed for %s", req.URL.String())
+	})}
+	service := New(ServiceOptions{
+		Store:   store,
+		Catalog: catalogWith(tool),
+		Adapters: adapter.NewRegistry(
+			adapter.WithSecrets(map[string]string{"WORK_API_TOKEN": secretValue}),
+			adapter.WithHTTPClient(client),
+		),
+		IDs: fixedIDs("run_secret"),
+	})
+
+	// #when
+	result, err := service.Run(context.Background(), tool.Name, []byte(`{}`))
+
+	// #then
+	if err == nil {
+		t.Fatal("Run() error = nil")
+	}
+	if result.Run.ErrorMessage == nil {
+		t.Fatal("ErrorMessage = nil")
+	}
+	if strings.Contains(*result.Run.ErrorMessage, secretValue) {
+		t.Fatalf("stored error message leaked secret: %q", *result.Run.ErrorMessage)
 	}
 }
 
@@ -246,4 +288,10 @@ func writeTool() domain.Tool {
 		SourcePath:  "tools/weekly.submit_report.yaml",
 		Fingerprint: "fingerprint-write",
 	}
+}
+
+type runserviceRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f runserviceRoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }

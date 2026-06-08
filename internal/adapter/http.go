@@ -78,7 +78,7 @@ func (a *HTTPAdapter) Execute(ctx context.Context, tool domain.Tool, input json.
 
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
-		return nil, protocol.NewError(protocol.AdapterError, err.Error())
+		return nil, protocol.NewError(protocol.AdapterError, "HTTP request could not be created")
 	}
 
 	headers, err := renderHeaders(tool.AdapterConfig["headers"], input, secrets)
@@ -94,7 +94,7 @@ func (a *HTTPAdapter) Execute(ctx context.Context, tool domain.Tool, input json.
 
 	resp, err := a.client.Do(req)
 	if err != nil {
-		return nil, protocol.NewError(protocol.AdapterError, err.Error())
+		return nil, protocol.NewError(protocol.AdapterError, "HTTP request failed")
 	}
 	defer resp.Body.Close()
 

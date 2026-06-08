@@ -3,8 +3,10 @@ package adapter
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -152,6 +154,35 @@ func TestHTTPAdapterTimesOutHungServer(t *testing.T) {
 	}
 }
 
+func TestHTTPAdapterExecutionErrorDoesNotLeakRenderedURLSecret(t *testing.T) {
+	// #given
+	secretValue := "secret-token-in-url"
+	tool := domain.Tool{
+		Name:    "weekly.get_records",
+		Adapter: "http",
+		Secrets: []string{"WORK_API_TOKEN"},
+		AdapterConfig: map[string]any{
+			"method": "GET",
+			"url":    "https://example.invalid/records?token=${secrets.WORK_API_TOKEN}",
+		},
+	}
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return nil, fmt.Errorf("request failed for %s", req.URL.String())
+	})}
+
+	// #when
+	_, err := NewHTTPAdapter(WithSecrets(map[string]string{"WORK_API_TOKEN": secretValue}), WithHTTPClient(client)).Execute(context.Background(), tool, json.RawMessage(`{}`))
+
+	// #then
+	perr := protocol.AsError(err)
+	if perr == nil || perr.Code != protocol.AdapterError {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if strings.Contains(err.Error(), secretValue) {
+		t.Fatalf("Execute() error leaked secret: %v", err)
+	}
+}
+
 func TestHTTPAdapterRejectsNon2xxStatus(t *testing.T) {
 	// #given
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -215,4 +246,10 @@ func TestRegistryRejectsUnsupportedAdapter(t *testing.T) {
 	if err == nil || err.Error() != "TOOL_CATALOG_ERROR: unsupported adapter shell" {
 		t.Fatalf("Execute() error = %v", err)
 	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
