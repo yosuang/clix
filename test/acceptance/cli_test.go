@@ -61,8 +61,53 @@ func TestJSONFailureWritesOnlyErrorObjectToStderr(t *testing.T) {
 	// #then
 	got.wantExitCode(1)
 	got.wantStdout("")
-	got.wantStderrContains(`"ok":false`)
-	got.wantStderrContains(`"code":"TOOL_NOT_FOUND"`)
+	got.wantStderrJSONError("TOOL_NOT_FOUND", `tool "missing.tool" not found`)
+}
+
+func TestDecodeOnlyJSONErrorRejectsDiagnosticsAndExtraFields(t *testing.T) {
+	cases := map[string]string{
+		"prefix text":      `diagnostic {"ok":false,"code":"TOOL_NOT_FOUND","message":"tool not found"}` + "\n",
+		"suffix text":      `{"ok":false,"code":"TOOL_NOT_FOUND","message":"tool not found"}` + "\nextra\n",
+		"multiple values":  `{"ok":false,"code":"TOOL_NOT_FOUND","message":"tool not found"} {"ok":false}` + "\n",
+		"extra field":      `{"ok":false,"code":"TOOL_NOT_FOUND","message":"tool not found","detail":"x"}` + "\n",
+		"malformed json":   `{"ok":false,"code":"TOOL_NOT_FOUND","message":"tool not found"` + "\n",
+		"non-object json":  `["ok","code","message"]` + "\n",
+		"missing message":  `{"ok":false,"code":"TOOL_NOT_FOUND"}` + "\n",
+		"non-false ok":     `{"ok":true,"code":"TOOL_NOT_FOUND","message":"tool not found"}` + "\n",
+		"non-string code":  `{"ok":false,"code":404,"message":"tool not found"}` + "\n",
+		"non-string error": `{"ok":false,"code":"TOOL_NOT_FOUND","message":404}` + "\n",
+	}
+
+	for name, stderr := range cases {
+		t.Run(name, func(t *testing.T) {
+			// #given
+			input := []byte(stderr)
+
+			// #when
+			_, err := decodeOnlyJSONError(input)
+
+			// #then
+			if err == nil {
+				t.Fatal("decodeOnlyJSONError() error = nil, want strict JSON error rejection")
+			}
+		})
+	}
+}
+
+func TestDecodeOnlyJSONErrorAcceptsExactlyOneErrorObject(t *testing.T) {
+	// #given
+	stderr := []byte(`{"ok":false,"code":"TOOL_NOT_FOUND","message":"tool not found"}` + "\n")
+
+	// #when
+	got, err := decodeOnlyJSONError(stderr)
+
+	// #then
+	if err != nil {
+		t.Fatalf("decodeOnlyJSONError() error = %v", err)
+	}
+	if got.Code != "TOOL_NOT_FOUND" || got.Message != "tool not found" {
+		t.Fatalf("decoded error = %#v", got)
+	}
 }
 
 func TestWriteActionCreatesPendingRun(t *testing.T) {
@@ -299,6 +344,17 @@ func (r *result) wantStderrContains(want string) {
 	}
 }
 
+func (r *result) wantStderrJSONError(wantCode string, wantMessage string) {
+	r.t.Helper()
+	got, err := decodeOnlyJSONError(r.stderr.Bytes())
+	if err != nil {
+		r.t.Fatalf("stderr JSON error decode = %v\nstderr:\n%s\nstdout:\n%s", err, r.stderr.String(), r.stdout.String())
+	}
+	if got.Code != wantCode || got.Message != wantMessage {
+		r.t.Fatalf("stderr JSON error = %#v, want code %q message %q", got, wantCode, wantMessage)
+	}
+}
+
 func (r *result) stdoutFieldString(field string) string {
 	r.t.Helper()
 	var object map[string]any
@@ -344,6 +400,50 @@ func (r *result) normalizeGoRunExitStatus() {
 	r.code = code
 	r.stderr.Reset()
 	r.stderr.WriteString(raw[:lineStart])
+}
+
+type jsonErrorObject struct {
+	Code    string
+	Message string
+}
+
+func decodeOnlyJSONError(stderr []byte) (jsonErrorObject, error) {
+	decoder := json.NewDecoder(bytes.NewReader(stderr))
+	var raw map[string]json.RawMessage
+	if err := decoder.Decode(&raw); err != nil {
+		return jsonErrorObject{}, fmt.Errorf("stderr must be one JSON object: %w", err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return jsonErrorObject{}, fmt.Errorf("stderr must contain exactly one JSON object")
+	}
+	if len(raw) != 3 {
+		return jsonErrorObject{}, fmt.Errorf("stderr JSON error must contain exactly ok, code, and message fields")
+	}
+
+	okRaw, hasOK := raw["ok"]
+	codeRaw, hasCode := raw["code"]
+	messageRaw, hasMessage := raw["message"]
+	if !hasOK || !hasCode || !hasMessage {
+		return jsonErrorObject{}, fmt.Errorf("stderr JSON error must contain exactly ok, code, and message fields")
+	}
+
+	var ok bool
+	if err := json.Unmarshal(okRaw, &ok); err != nil {
+		return jsonErrorObject{}, fmt.Errorf("stderr JSON error ok must be false")
+	}
+	if ok {
+		return jsonErrorObject{}, fmt.Errorf("stderr JSON error ok must be false")
+	}
+
+	var out jsonErrorObject
+	if err := json.Unmarshal(codeRaw, &out.Code); err != nil {
+		return jsonErrorObject{}, fmt.Errorf("stderr JSON error code must be a string")
+	}
+	if err := json.Unmarshal(messageRaw, &out.Message); err != nil {
+		return jsonErrorObject{}, fmt.Errorf("stderr JSON error message must be a string")
+	}
+	return out, nil
 }
 
 type weeklyTools struct {
