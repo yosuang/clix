@@ -2,6 +2,7 @@ package acceptance_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,7 +18,10 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 )
+
+const clixCommandTimeout = 45 * time.Second
 
 func TestWeeklyReportAcceptanceScenario(t *testing.T) {
 	// #given
@@ -107,6 +111,27 @@ func TestDecodeOnlyJSONErrorAcceptsExactlyOneErrorObject(t *testing.T) {
 	}
 	if got.Code != "TOOL_NOT_FOUND" || got.Message != "tool not found" {
 		t.Fatalf("decoded error = %#v", got)
+	}
+}
+
+func TestSubprocessTimeoutFailureMessageIncludesCapturedOutput(t *testing.T) {
+	// #given
+	var stdout, stderr bytes.Buffer
+	stdout.WriteString("partial stdout")
+	stderr.WriteString("partial stderr")
+
+	// #when
+	got := subprocessTimeoutFailureMessage([]string{"check"}, stdout.String(), stderr.String())
+
+	// #then
+	for _, want := range []string{
+		"clix check timed out",
+		"stdout:\npartial stdout",
+		"stderr:\npartial stderr",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("message = %q, want it to contain %q", got, want)
+		}
 	}
 }
 
@@ -287,15 +312,22 @@ func runClixAllowFailure(t *testing.T, home string, stdin io.Reader, args ...str
 	t.Helper()
 	got := &result{t: t}
 	cmdArgs := append([]string{"run", "./cmd/clix"}, args...)
-	cmd := exec.Command("go", cmdArgs...)
+	ctx, cancel := context.WithTimeout(context.Background(), clixCommandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "go", cmdArgs...)
 	cmd.Dir = repoRoot(t)
 	cmd.Env = subprocessEnv(t, home)
 	cmd.Stdout = &got.stdout
 	cmd.Stderr = &got.stderr
+	cmd.WaitDelay = 2 * time.Second
 	if stdin != nil {
 		cmd.Stdin = stdin
 	}
 	err := cmd.Run()
+	if ctx.Err() != nil {
+		t.Fatal(subprocessTimeoutFailureMessage(args, got.stdout.String(), got.stderr.String()))
+	}
 	if err == nil {
 		return got
 	}
@@ -307,6 +339,10 @@ func runClixAllowFailure(t *testing.T, home string, stdin io.Reader, args ...str
 	}
 	t.Fatalf("clix %s failed to start: %v", strings.Join(args, " "), err)
 	return got
+}
+
+func subprocessTimeoutFailureMessage(args []string, stdout string, stderr string) string {
+	return fmt.Sprintf("clix %s timed out after %s\nstdout:\n%s\nstderr:\n%s", strings.Join(args, " "), clixCommandTimeout, stdout, stderr)
 }
 
 func (r *result) wantExitCode(want int) {
@@ -637,9 +673,17 @@ var goToolEnv struct {
 func currentGoToolEnv(t *testing.T) []string {
 	t.Helper()
 	goToolEnv.once.Do(func() {
-		cmd := exec.Command("go", "env", "GOCACHE", "GOMODCACHE", "GOPATH")
+		ctx, cancel := context.WithTimeout(context.Background(), clixCommandTimeout)
+		defer cancel()
+
+		cmd := exec.CommandContext(ctx, "go", "env", "GOCACHE", "GOMODCACHE", "GOPATH")
 		cmd.Dir = repoRoot(t)
+		cmd.WaitDelay = 2 * time.Second
 		out, err := cmd.Output()
+		if ctx.Err() != nil {
+			goToolEnv.err = fmt.Errorf("go env timed out after %s", clixCommandTimeout)
+			return
+		}
 		if err != nil {
 			goToolEnv.err = err
 			return
